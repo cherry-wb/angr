@@ -1,4 +1,6 @@
 
+import pyvex
+
 from ...engines.light import SimEngineLightVEXMixin
 from ..typehoon import typevars, typeconsts
 from .engine_base import SimEngineVRBase, RichR
@@ -47,6 +49,22 @@ class SimEngineVRVEX(
             self.tmps[stmt.dst] = data
         else:
             self.tmps[stmt.dst] = None
+
+    def _handle_LLSC(self, stmt: pyvex.IRStmt.LLSC):
+        if stmt.storedata is None:
+            # load-link
+            addr = self._expr(stmt.addr)
+            size = self.tyenv.sizeof(stmt.result) // self.arch.byte_width
+            data = self._load(addr, size)
+            self.tmps[stmt.result] = data
+        else:
+            # store-conditional
+            storedata = self._expr(stmt.storedata)
+            addr = self._expr(stmt.addr)
+            size = self.tyenv.sizeof(stmt.storedata.tmp) // self.arch.byte_width
+
+            self._store(addr, storedata, size)
+            self.tmps[stmt.result] = RichR(1)
 
     def _handle_NoOp(self, stmt):
         pass
@@ -318,4 +336,88 @@ class SimEngineVRVEX(
 
         except TypeError as e:
             self.l.warning(e)
+            return RichR(None)
+
+    def _handle_CmpEQ(self, expr):
+        arg0, arg1 = expr.args
+        expr_0 = self._expr(arg0)
+        expr_1 = self._expr(arg1)
+
+        if expr_0.data is None or expr_1.data is None:
+            return RichR(None)
+
+        try:
+            return RichR(expr_0.data == expr_1.data)
+        except TypeError as ex:
+            self.l.warning(ex)
+            return RichR(None)
+
+    def _handle_CmpNE(self, expr):
+        arg0, arg1 = expr.args
+        expr_0 = self._expr(arg0)
+        expr_1 = self._expr(arg1)
+
+        if expr_0.data is None or expr_1.data is None:
+            return RichR(None)
+
+        try:
+            return RichR(expr_0.data != expr_1.data)
+        except TypeError as ex:
+            self.l.warning(ex)
+            return RichR(None)
+
+    def _handle_CmpLE(self, expr):
+        arg0, arg1 = expr.args
+        expr_0 = self._expr(arg0)
+        expr_1 = self._expr(arg1)
+
+        if expr_0.data is None or expr_1.data is None:
+            return RichR(None)
+
+        try:
+            return RichR(expr_0.data <= expr_1.data)
+        except TypeError as ex:
+            self.l.warning(ex)
+            return RichR(None)
+
+    def _handle_CmpLT(self, expr):
+        arg0, arg1 = expr.args
+        expr_0 = self._expr(arg0)
+        expr_1 = self._expr(arg1)
+
+        if expr_0.data is None or expr_1.data is None:
+            return RichR(None)
+
+        try:
+            return RichR(expr_0.data < expr_1.data)
+        except TypeError as ex:
+            self.l.warning(ex)
+            return RichR(None)
+
+    def _handle_CmpGE(self, expr):
+        arg0, arg1 = expr.args
+        expr_0 = self._expr(arg0)
+        expr_1 = self._expr(arg1)
+
+        if expr_0.data is None or expr_1.data is None:
+            return RichR(None)
+
+        try:
+            return RichR(expr_0.data >= expr_1.data)
+        except TypeError as ex:
+            self.l.warning(ex)
+            return RichR(None)
+
+    def _handle_CmpGT(self, expr):
+        arg0, arg1 = expr.args
+        expr_0 = self._expr(arg0)
+        expr_1 = self._expr(arg1)
+
+        if expr_0.data is None or expr_1.data is None:
+            return RichR(None)
+
+        try:
+            return RichR(expr_0.data > expr_1.data)
+        except TypeError as ex:
+            self.l.warning(ex)
             return RichR(None)
